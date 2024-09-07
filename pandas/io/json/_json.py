@@ -1357,6 +1357,12 @@ class Parser:
                         "zones will raise an error",
                         category=FutureWarning,
                     )
+                    warnings.filterwarnings(
+                        "ignore",
+                        "The behavior of 'to_datetime' with 'unit' "
+                        "when parsing strings is deprecated.",
+                        category=FutureWarning,
+                    )
                     new_data = to_datetime(new_data, errors="raise", unit=date_unit)
             except (ValueError, OverflowError, TypeError):
                 continue
