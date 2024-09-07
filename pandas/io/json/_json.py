@@ -1210,7 +1210,7 @@ class Parser:
                 name=axis_name,
                 data=ser,
                 use_dtypes=False,
-                convert_dates=True,
+                convert_dates=self.convert_dates,
                 is_axis=True,
             )
             if result:
