@@ -663,7 +663,7 @@ class Block(PandasObject, libinternals.Block):
             or isinstance(res_values, NumpyExtensionArray)
             and res_values._ndarray is values
         ):
-            res_values = values.copy()
+            res_values = res_values.copy()
         elif res_values is values:
             refs = self.refs
 
