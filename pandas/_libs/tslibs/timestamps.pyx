@@ -1695,6 +1695,19 @@ class Timestamp(_Timestamp):
         datetime-like corresponds  to the first (0) or the second time (1)
         the wall clock hits the ambiguous time.
 
+    Attributes
+    ----------
+    max : Timestamp
+        A constant that represents the maximum valid date and time value.
+        This property returns the highest datetime value that can be represented
+        by a pandas.Timestamp object, which is equivalent to
+        pd.Timestamp('2262-04-11 23:47:16.854775807').
+    min : Timestamp
+        A constant that represents the minimum valid date and time value.
+        This property returns the earliest datetime value that can be represented
+        by a pandas.Timestamp object, which is equivalent to
+        pd.Timestamp('1677-09-21 00:12:43.145224193').
+
     See Also
     --------
     Timedelta : Represents a duration, the difference between two dates or times.
