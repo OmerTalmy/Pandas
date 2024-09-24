@@ -16,6 +16,7 @@ import pytest
 from pandas.errors import ParserError
 
 import pandas._testing as tm
+from pandas.core.frame import DataFrame
 
 from pandas.io.parsers import read_csv
 import pandas.io.parsers.readers as parsers
@@ -149,6 +150,20 @@ x   q   30      3    -0.6662 -0.5243 -0.3580  0.89145  2.5838"""
 
             with pytest.raises(ValueError, match=msg):
                 read_csv(StringIO(data), engine="pyarrow", **kwargs)
+
+    def test_pyarrow_newlines_in_values(self):
+        pytest.importorskip("pyarrow")
+        msg = (
+            "CSV parser got out of sync with chunker. "
+            "This can mean the data file contains cell values spanning multiple "
+            "lines; please consider enabling the option 'newlines_in_values'."
+        )
+        rows = [{"text": "ab\ncd", "idx": idx} for idx in range(1_000_000)]
+        df = DataFrame(rows)
+        df.to_csv("test.csv", index=False)
+        with pytest.raises(ValueError, match=msg):
+            read_csv("test.csv", engine="pyarrow")
+        os.unlink("test.csv")
 
     def test_on_bad_lines_callable_python_or_pyarrow(self, all_parsers):
         # GH 5686
