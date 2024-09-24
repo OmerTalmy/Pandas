@@ -19,19 +19,30 @@ from cpython.datetime cimport (
     time,
     timedelta,
 )
+from cpython.dict cimport PyDict_CheckExact
+from cpython.float cimport PyFloat_CheckExact
 from cpython.iterator cimport PyIter_Check
+from cpython.list cimport PyList_CheckExact
+from cpython.long cimport PyLong_CheckExact
 from cpython.number cimport PyNumber_Check
 from cpython.object cimport (
     Py_EQ,
     PyObject,
+    PyObject_Hash,
     PyObject_RichCompareBool,
 )
 from cpython.ref cimport Py_INCREF
 from cpython.sequence cimport PySequence_Check
+from cpython.set cimport (
+    PyAnySet_CheckExact,
+    PyFrozenSet_CheckExact,
+)
 from cpython.tuple cimport (
+    PyTuple_CheckExact,
     PyTuple_New,
     PyTuple_SET_ITEM,
 )
+from cpython.unicode cimport PyUnicode_CheckExact
 from cython cimport (
     Py_ssize_t,
     floating,
@@ -1095,6 +1106,73 @@ def is_float(obj: object) -> bool:
     False
     """
     return util.is_float_object(obj)
+
+
+cpdef bint is_hashable(object obj) noexcept:
+    """
+    Return True if hash(obj) will succeed, False otherwise.
+
+    Some types will pass a test against collections.abc.Hashable but fail when
+    they are actually hashed with hash().
+
+    Distinguish between these and other types by trying the call to hash() and
+    seeing if they raise TypeError.
+
+    Returns
+    -------
+    bool
+
+    Examples
+    --------
+    >>> import collections
+    >>> from pandas.api.types import is_hashable
+    >>> a = ([],)
+    >>> isinstance(a, collections.abc.Hashable)
+    True
+    >>> is_hashable(a)
+    False
+    """
+    cdef:
+        bint is_none
+        bint is_long
+        bint is_float
+        bint is_unicode
+        bint is_tuple
+        bint is_frozen_set
+        bint is_dict
+        bint is_list
+        bint is_any_set
+
+    # Perform all checks in order to be nice to the branch predictor
+    is_none = obj is None
+    is_long = PyLong_CheckExact(obj)
+    is_float = PyFloat_CheckExact(obj)
+    is_unicode = PyUnicode_CheckExact(obj)
+    is_tuple = PyTuple_CheckExact(obj)
+    is_frozen_set = PyFrozenSet_CheckExact(obj)
+    is_dict = PyDict_CheckExact(obj)
+    is_list = PyList_CheckExact(obj)
+    is_any_set = PyAnySet_CheckExact(obj)
+
+    if is_none or is_long or is_float or is_unicode or is_frozen_set:
+        return True
+
+    # tuple is hashable if and only if all elements are hashable
+    if is_tuple:
+        for o in <tuple>obj:
+            if not is_hashable(o):
+                return False
+        return True
+
+    if is_dict or is_list or is_any_set:
+        return False
+
+    try:
+        PyObject_Hash(obj)
+    except TypeError:
+        return False
+    else:
+        return True
 
 
 def is_integer(obj: object) -> bool:
