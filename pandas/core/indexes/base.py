@@ -23,7 +23,7 @@ import numpy as np
 from pandas._config import (
     get_option,
     using_copy_on_write,
-    using_pyarrow_string_dtype,
+    using_string_dtype,
 )
 
 from pandas._libs import (
@@ -5072,7 +5072,10 @@ class Index(IndexOpsMixin, PandasObject):
             return (
                 isinstance(self.dtype, np.dtype)
                 or isinstance(self._values, (ArrowExtensionArray, BaseMaskedArray))
-                or self.dtype == "string[python]"
+                or (
+                    isinstance(self.dtype, StringDtype)
+                    and self.dtype.storage == "python"
+                )
             )
         # Exclude index types where the conversion to numpy converts to object dtype,
         #  which negates the performance benefit of libjoin
@@ -5620,9 +5623,10 @@ class Index(IndexOpsMixin, PandasObject):
 
         if (
             isinstance(self.dtype, StringDtype)
-            and self.dtype.storage == "pyarrow_numpy"
+            and self.dtype.na_value is np.nan
             and other.dtype != self.dtype
         ):
+            # TODO(infer_string) can we avoid this special case?
             # special case for object behavior
             return other.equals(self.astype(object))
 
@@ -7011,7 +7015,7 @@ class Index(IndexOpsMixin, PandasObject):
 
         out = Index._with_infer(new_values, name=self.name)
         if (
-            using_pyarrow_string_dtype()
+            using_string_dtype()
             and is_string_dtype(out.dtype)
             and new_values.dtype == object
         ):
