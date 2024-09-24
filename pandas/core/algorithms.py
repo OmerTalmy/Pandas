@@ -23,6 +23,7 @@ from pandas._libs import (
     iNaT,
     lib,
 )
+from pandas._libs.missing import NA
 from pandas._typing import (
     AnyArrayLike,
     ArrayLike,
@@ -1663,15 +1664,19 @@ def map_array(
             # possibility that they are tuples
 
             # The return value of mapping with an empty mapper is
-            # expected to be pd.Series(np.nan, ...). As np.nan is
-            # of dtype float64 the return value of this method should
-            # be float64 as well
+            # expected to be pd.Series(np.nan, ...) or pd.Series(NA, ...).
+            # As np.nan is of dtype float64 the return value of this method should
+            # be float64 in this case
+            # in the other case (NA) it should be the dtype of the original data
             from pandas import Series
 
+            dtype = None
             if len(mapper) == 0:
-                mapper = Series(mapper, dtype=np.float64)
-            else:
-                mapper = Series(mapper)
+                if hasattr(arr.dtype, "na_value") and arr.dtype.na_value is NA:
+                    dtype = arr.dtype
+                else:
+                    dtype = np.float64
+            mapper = Series(mapper, dtype=dtype)
 
     if isinstance(mapper, ABCSeries):
         if na_action == "ignore":
@@ -1687,9 +1692,77 @@ def map_array(
     if not len(arr):
         return arr.copy()
 
-    # we must convert to python types
-    values = arr.astype(object, copy=False)
+    mask, na_value, storage, values = _build_map_infer_methods_params(arr)
+
     if na_action is None:
-        return lib.map_infer(values, mapper)
+        return lib.map_infer(
+            values,
+            mapper,
+            mask=mask,
+            na_value=na_value,
+            convert_to_nullable_dtype=na_value is NA,
+            storage=storage,
+        )
     else:
-        return lib.map_infer_mask(values, mapper, mask=isna(values).view(np.uint8))
+        return lib.map_infer_mask(
+            values,
+            mapper,
+            mask=mask,
+            na_value=na_value,
+            convert_to_nullable_dtype=na_value is NA,
+            convert_non_numeric=True,
+            storage=storage,
+        )
+
+
+def _build_map_infer_methods_params(arr: ArrayLike):
+    """
+    Process lib.map_infer and lib.map_infer_mask parameters from an array `arr`
+
+    Parameters
+    ----------
+    arr
+
+    Returns
+    -------
+    mask : np.ndarray[bool]
+    na_value : object
+        A value in `values` to consider missing.
+    storage : {"python", "pyarrow", "pyarrow_numpy"}, default "python"
+        Backend storage
+    values : np.ndarray
+        Values to be processed by lib.map_infer and lib.map_infer_mask
+
+    """
+    na_value = np.nan
+    mask = isna(arr)
+    storage = None
+    if isinstance(arr.dtype, BaseMaskedDtype):
+        arr = cast("BaseMaskedArray", arr)
+        values = np.fromiter(arr._data, dtype="O")
+        if arr._hasna:
+            na_value = arr.dtype.na_value
+
+    elif isinstance(arr.dtype, ExtensionDtype):
+        from pandas.core.arrays.string_ import StringDtype
+
+        arr = cast("ExtensionArray", arr)
+        arr_dtype = arr.dtype.__repr__()
+        if (
+            isinstance(arr.dtype, StringDtype) and arr.dtype.storage == "pyarrow"
+        ) or "pyarrow" in arr_dtype:
+            storage = "pyarrow"
+            values = np.fromiter(arr._pa_array, dtype="O")
+        else:
+            values = np.asarray(arr)
+        if (
+            isinstance(arr.dtype, StringDtype) and arr.dtype.storage == "python"
+        ) or "python" in arr_dtype:
+            storage = "python"
+        if arr._hasna:
+            na_value = arr.dtype.na_value
+
+    else:
+        # we must convert to python types
+        values = arr.astype(object, copy=False)
+    return mask, na_value, storage, values
