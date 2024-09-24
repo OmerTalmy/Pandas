@@ -2317,7 +2317,13 @@ class DataFrameGroupBy(GroupBy[DataFrame]):
         normalize : bool, default False
             Return proportions rather than frequencies.
         sort : bool, default True
-            Sort by frequencies.
+            Sort by frequencies when True. When False, non-grouping columns will appear
+            in the order they occur in within groups.
+
+            .. versionchanged:: 3.0.0
+
+                In prior versions, ``sort=False`` would sort the non-grouping columns
+                by label.
         ascending : bool, default False
             Sort in ascending order.
         dropna : bool, default True
@@ -2369,8 +2375,8 @@ class DataFrameGroupBy(GroupBy[DataFrame]):
 
         >>> df.groupby("gender").value_counts()
         gender  education  country
-        female  high       FR         1
-                           US         1
+        female  high       US         1
+                           FR         1
         male    low        FR         2
                            US         1
                 medium     FR         1
@@ -2378,8 +2384,8 @@ class DataFrameGroupBy(GroupBy[DataFrame]):
 
         >>> df.groupby("gender").value_counts(ascending=True)
         gender  education  country
-        female  high       FR         1
-                           US         1
+        female  high       US         1
+                           FR         1
         male    low        US         1
                 medium     FR         1
                 low        FR         2
@@ -2387,8 +2393,8 @@ class DataFrameGroupBy(GroupBy[DataFrame]):
 
         >>> df.groupby("gender").value_counts(normalize=True)
         gender  education  country
-        female  high       FR         0.50
-                           US         0.50
+        female  high       US         0.50
+                           FR         0.50
         male    low        FR         0.50
                            US         0.25
                 medium     FR         0.25
@@ -2396,16 +2402,16 @@ class DataFrameGroupBy(GroupBy[DataFrame]):
 
         >>> df.groupby("gender", as_index=False).value_counts()
            gender education country  count
-        0  female      high      FR      1
-        1  female      high      US      1
+        0  female      high      US      1
+        1  female      high      FR      1
         2    male       low      FR      2
         3    male       low      US      1
         4    male    medium      FR      1
 
         >>> df.groupby("gender", as_index=False).value_counts(normalize=True)
            gender education country  proportion
-        0  female      high      FR        0.50
-        1  female      high      US        0.50
+        0  female      high      US        0.50
+        1  female      high      FR        0.50
         2    male       low      FR        0.50
         3    male       low      US        0.25
         4    male    medium      FR        0.25
